@@ -1,6 +1,6 @@
 <div align="center">
 
-# print-cvc
+# print-cnc
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-498AF2?style=for-the-badge)
 ![Input](https://img.shields.io/badge/Input-JPG%20%7C%20PNG%20%7C%20BMP-A19654?style=for-the-badge)
@@ -55,7 +55,7 @@ The window lets you choose a JPG, PNG, or BMP, save the prepared job, and view s
 If you receive a wheel instead of the source folder:
 
 ```console
-python -m pip install print_cvc-0.1.0-py3-none-any.whl
+python -m pip install print_cnc-0.1.0-py3-none-any.whl
 python -m plotter
 ```
 

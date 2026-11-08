@@ -1,5 +1,5 @@
 [workspace]
-name = "print-cvc"
+name = "print-cnc"
 version = "0.1.0"
 channels = ["conda-forge"]
 platforms = ["linux-64"]
