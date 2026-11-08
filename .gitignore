@@ -1,0 +1,12 @@
+.pixi/
+__pycache__/
+.ruff_cache/
+output/
+dist/
+build/
+*.egg-info/
+CLAUDE.md
+STATUS.md
+PLAN.md
+REFERENCE.md
+history/

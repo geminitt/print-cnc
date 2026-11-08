@@ -1,0 +1,11 @@
+{
+  "name": "simulation-only",
+  "simulation": true,
+  "width_mm": 150,
+  "height_mm": 100,
+  "margin_mm": 5,
+  "draw_feed_mm_min": 600,
+  "travel_feed_mm_min": 1200,
+  "pen_up": ["; SIMULATED PEN UP"],
+  "pen_down": ["; SIMULATED PEN DOWN"]
+}
