@@ -3,10 +3,10 @@
 # print-cvc
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-498AF2?style=for-the-badge)
-![Input](https://img.shields.io/badge/Input-JPG-A19654?style=for-the-badge)
+![Input](https://img.shields.io/badge/Input-JPG%20%7C%20PNG%20%7C%20BMP-A19654?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Hardware-unverified-6B7F4E?style=for-the-badge)
 
-**Prepare JPG boundaries for an XY pen plotter and monitor confirmed execution.**
+**Prepare image boundaries for an XY pen plotter and monitor confirmed execution.**
 
 </div>
 
@@ -14,25 +14,25 @@
 
 ## Implementation and validation status
 
-**The JPG simulation implementation is available. Desktop validation and real-machine integration are still required. This is not a machine-ready release.**
+**The JPG, PNG, and BMP simulation implementation is available. Desktop validation and real-machine integration are still required. This is not a machine-ready release.**
 
 | Component | Implemented and checked | Still requires hands-on validation |
 |---|---|---|
-| JPG processing | JPEG decoding, orientation, black/white boundary extraction, holes, disconnected strokes, scaling, and coordinate conversion; checked with generated JPG test images | Try the recipient's own images and assess whether the extracted outlines produce the intended drawing |
+| Image processing | Shared Pillow decoding for JPEG, PNG, and BMP; orientation, white-background transparency handling, black/white boundaries, holes, disconnected strokes, scaling, and coordinate conversion; checked with generated images | Try the recipient's own images and assess whether the extracted outlines produce the intended drawing |
 | G-code preparation | Configurable work area and pen commands, pen-up travel, pen-down drawing, bounds checks, and matching preview metadata; checked with the simulation profile and software fixtures | Confirm the actual firmware dialect, machine dimensions, origin, feed rates, pen commands, and settling delays with the controller teammate |
 | Execution progress | Mock events and the draft file-event adapter; tested counts, pause/error/disconnect states, and explicit completion confirmation | Connect an adapter to genuine controller feedback and prove that reported counts mean finished execution |
-| GUI | JPG preparation window and read-only monitor are implemented; queue handling and bounded preview updates have headless checks | Open and test the actual Tk windows on the recipient's desktop; rendering, resizing, interaction, and responsiveness have not been verified on a display |
+| GUI | Image preparation window and read-only monitor are implemented; queue handling and bounded preview updates have headless checks | Open and test the actual Tk windows on the recipient's desktop; rendering, resizing, interaction, and responsiveness have not been verified on a display |
 | Python packaging | Wheel built, installed, and run outside the source tree with ordinary Python on Linux, without Pixi commands | Check installation and GUI startup on the recipient's actual OS/Python; fresh dependency downloads and Windows/macOS execution were not tested |
 
-Verification recorded on 2026-11-08: **41 automated tests passed; one real-Tk test was skipped because the test environment could not connect to a graphical display.** Lint and formatting checks passed. Both source and installed-wheel headless demos completed using mock execution. The installation check used cached Pillow dependencies; it does not establish a fresh online installation or desktop GUI operation.
+Source verification recorded on 2026-11-08: **47 automated tests passed; one real-Tk test was skipped because the test environment could not connect to a graphical display.** Lint and formatting checks passed. CLI tests covered JPG, PNG, and BMP conversion. Both source and installed-wheel headless demos have been checked using mock execution. Installation checks use cached Pillow dependencies; they do not establish a fresh online installation or desktop GUI operation.
 
 ### Hands-on validation still required
 
 Complete the following checks before calling the application ready for the intended machine:
 
 1. **Install on the recipient's computer.** Follow [Install and open](#install-and-open), then run `python -m tkinter` and `python -m plotter demo --headless`. Confirm that Tk opens a window and that the command-line demo finishes. Pixi is not needed.
-2. **Exercise the actual GUI.** Run `python -m plotter`, choose a JPG, save the job, and inspect the monitor. Check window resizing, the path preview, progress labels, error messages, and responsiveness during loading and playback. From a source checkout, also run `python -m unittest discover -s tests -p test_gui.py -v`; the real-Tk test must run successfully rather than skip.
-3. **Assess the intended images.** Start with a line, rectangle, curve, and disconnected strokes, then use the recipient's real JPGs. Check orientation, proportions, margins, missing detail, and unwanted contours. Adjust threshold/resolution through the [conversion command](#prepare-a-jpg-without-a-gui). Outline tracing can produce two boundaries around a thick line; photographic grayscale, shading, and centerline tracing are not implemented. Other image formats are not implemented yet.
+2. **Exercise the actual GUI.** Run `python -m plotter`, choose a JPG, PNG, or BMP, save the job, and inspect the monitor. Check window resizing, the path preview, progress labels, error messages, and responsiveness during loading and playback. From a source checkout, also run `python -m unittest discover -s tests -p test_gui.py -v`; the real-Tk test must run successfully rather than skip.
+3. **Assess the intended images.** Start with a line, rectangle, curve, and disconnected strokes, then use the recipient's real images. Check orientation, proportions, margins, missing detail, and unwanted contours. Adjust threshold/resolution through the [conversion command](#prepare-an-image-without-a-gui). Outline tracing can produce two boundaries around a thick line; photographic grayscale, shading, and centerline tracing are not implemented. Formats other than JPEG, PNG, and BMP are not supported.
 4. **Inspect all mock states on screen.** Run the `paused`, `error`, `disconnected`, and `unconfirmed` scenarios listed under [Feedback events](#feedback-events). Confirm that only executed drawing segments turn green, a disconnect preserves the last confirmed count, and `unconfirmed` does not declare completion even after all instruction counts arrive. If no further feedback arrives, the watchdog should report a disconnect.
 5. **Agree on the real integration contract.** With the controller teammate, resolve the items in [Before machine integration](#before-machine-integration), replace the example profile with reviewed machine settings, and implement any adapter needed for the actual feedback protocol. The existing NDJSON interface is a draft; it is not an Arduino/GRBL integration.
 6. **Validate on the physical plotter with the controller teammate.** Use a small known drawing and verify its size, orientation, pen lift between disconnected strokes, pen lowering, travel limits, and feed behavior. Compare actual movement and completion against the GUI. Also check pause, controller error, and lost feedback. A successful mock run or a controller acknowledgment of receipt does not pass these physical checks.
@@ -50,7 +50,7 @@ python -m pip install .
 python -m plotter
 ```
 
-The window lets you choose a JPG, save the prepared job, and view simulated execution. It creates a `.json` job and a `.gcode` file with the same base name. You can also run `xy-plotter` after installation. Pixi is **not required** to install or run the application.
+The window lets you choose a JPG, PNG, or BMP, save the prepared job, and view simulated execution. It creates a `.json` job and a `.gcode` file with the same base name. You can also run `xy-plotter` after installation. Pixi is **not required** to install or run the application.
 
 If you receive a wheel instead of the source folder:
 
@@ -73,10 +73,26 @@ The runtime dependency, Pillow, is installed by pip. Tkinter is supplied by the 
 
 ---
 
-## Prepare a JPG without a GUI
+## Prepare an image without a GUI
+
+### Input formats
+
+| Input | Current handling |
+|---|---|
+| JPG / JPEG | Decode with Pillow and apply EXIF orientation |
+| PNG | Decode with Pillow, apply EXIF orientation, and composite transparency onto white |
+| BMP | Decode with Pillow and use the same grayscale conversion pipeline |
+
+All three formats use one reader and the same boundary-to-G-code pipeline. The reader checks file content rather than the filename extension. It normalizes pixels in memory without saving an intermediate JPG or creating separate per-format adapters.
+
+Other formats are currently rejected. Adding another raster format supported by Pillow requires enabling it in the reader, updating the file chooser, and checking its behavior with tests; it does not inherently require another adapter. SVG contains vector geometry and would need a separate vector-import path. Animated or multipage input is rejected; no frame or page is selected automatically.
+
+### Conversion commands
 
 ```console
 python -m plotter convert drawing.jpg --output output/drawing.json
+python -m plotter convert drawing.png --output output/drawing-png.json
+python -m plotter convert drawing.bmp --output output/drawing-bmp.json
 python -m plotter monitor output/drawing.json --mock
 ```
 
@@ -107,11 +123,13 @@ python -m plotter profile
 | `threshold` CLI option | Pixels with grayscale values below this value become dark; range 1–255 |
 | `resolution` CLI option | Maximum sampled image dimension, 16–512 pixels; lower values reduce detail and instruction count |
 
-The adapter checks JPEG file content, applies EXIF orientation, converts to grayscale, resizes, and traces dark-pixel boundaries. It retains holes and disconnected shapes. It removes exactly collinear boundary points, preserves the image aspect ratio, centers the full image, and converts image Y-down to machine Y-up. Output uses millimeters, bottom-left XY origin, absolute positions, and three decimal places. The initial physical pen position is unknown and is not fabricated in the preview.
+After decoding and normalization, the reader converts the image to grayscale, resizes it, and traces dark-pixel boundaries. Pillow remains the only external image dependency. Job metadata records the actual source format and the hash of the original file.
 
-This is **outline tracing**. A thick black line normally produces two boundaries. Photographs can produce many disconnected contours. Centerline tracing, shading/hatching, and grayscale reproduction are not implemented. Begin with high-contrast line art and inspect the preview before integration. Changing JPG resolution or threshold changes the geometry and job identity.
+The shared pipeline retains holes and disconnected shapes. It removes exactly collinear boundary points, preserves the image aspect ratio, centers the full image, and converts image Y-down to machine Y-up. Output uses millimeters, bottom-left XY origin, absolute positions, and three decimal places. The initial physical pen position is unknown and is not fabricated in the preview.
 
-Limits: 20 MiB encoded JPG, 24 million original pixels, sampled dimensions at most 512 × 512, and at most 100,000 generated instructions. Blank images, corrupt files, invalid profiles, nonfinite/out-of-bounds coordinates, and strokes that collapse at output precision fail visibly.
+This is **outline tracing**. A thick black line normally produces two boundaries. Photographs can produce many disconnected contours. Centerline tracing, shading/hatching, and grayscale reproduction are not implemented. Begin with high-contrast line art and inspect the preview before integration. Changing image resolution or threshold changes the geometry and job identity.
+
+Limits: 20 MiB encoded image, 24 million original pixels, sampled dimensions at most 512 × 512, and at most 100,000 generated instructions. Blank or fully transparent images, corrupt files, invalid profiles, nonfinite/out-of-bounds coordinates, and strokes that collapse at output precision fail visibly.
 
 ---
 
@@ -120,7 +138,7 @@ Limits: 20 MiB encoded JPG, 24 million original pixels, sampled dimensions at mo
 The team has not supplied firmware, pen commands, physical travel limits, or execution feedback. The interfaces below are a **proposed integration contract**, not a claim of compatibility with Arduino or GRBL. Firmware, sending, homing, motor control, and start/pause/stop commands remain the controller teammate's responsibility.
 
 ```text
-JPG → grayscale/threshold → pixel boundaries → machine-space strokes
+JPG / PNG / BMP → in-memory grayscale/threshold → pixel boundaries → machine-space strokes
     → pen-up travel / pen-down drawing → validated job JSON + G-code
 
 Separate controller → confirmed execution events → read-only monitor
@@ -202,7 +220,7 @@ pixi run lint
 pixi run demo
 ```
 
-The initial Pixi manifest targets Linux; ordinary pip installation is the cross-platform end-user path. Tests cover exhaustive 3 × 3 binary masks, holes, disconnected boundaries, real JPEG conversion and orientation, coordinate validation, pen transitions, exact preview/G-code mapping, corrupted metadata, execution semantics, partial event records, mock states, and the installed CLI. The real-Tk integration test explicitly skips if Tk or a graphical display is unavailable. A skip is not GUI verification. No hardware validation is included.
+The initial Pixi manifest targets Linux; ordinary pip installation is the cross-platform end-user path. Tests cover exhaustive 3 × 3 binary masks, holes, disconnected boundaries, JPEG/PNG/BMP conversion, EXIF orientation, alpha and palette transparency on white, animated-image rejection, image limits, coordinate validation, pen transitions, exact preview/G-code mapping, corrupted metadata, execution semantics, partial event records, mock states, and the installed CLI. The real-Tk integration test explicitly skips if Tk or a graphical display is unavailable. A skip is not GUI verification. No hardware validation is included.
 
 Build a distributable wheel with ordinary Python:
 

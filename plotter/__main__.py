@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .adapters import JsonlSource, MockSource
 from .gcode import Job, Profile, build_job, read_json, save_job
-from .images import read_jpg
+from .images import read_image
 
 LOG = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def convert(
         output_path.with_suffix(".gcode").resolve(),
     ):
         raise ValueError("Output must not overwrite the input image")
-    strokes, source = read_jpg(
+    strokes, source = read_image(
         input_path, profile.width_mm, profile.height_mm, profile.margin_mm, threshold, resolution
     )
     job = build_job(strokes, profile, source)
@@ -78,11 +78,11 @@ def prepare_window() -> None:
         root = tk.Tk()
     except tk.TclError as exc:
         raise ValueError(f"Cannot open the GUI display: {exc}") from exc
-    root.title("JPG preparation — SIMULATION ONLY")
+    root.title("Image preparation — SIMULATION ONLY")
     root.geometry("660x300")
     frame = ttk.Frame(root, padding=24)
     frame.pack(fill="both", expand=True)
-    ttk.Label(frame, text="JPG → XY Plotter", font=("TkDefaultFont", 20, "bold")).pack(anchor="w")
+    ttk.Label(frame, text="Image → XY Plotter", font=("TkDefaultFont", 20, "bold")).pack(anchor="w")
     ttk.Label(
         frame,
         text="SIMULATION ONLY — machine configuration is not yet confirmed",
@@ -90,7 +90,7 @@ def prepare_window() -> None:
     ).pack(anchor="w", pady=10)
     ttk.Label(
         frame,
-        text="Choose a JPG to extract black/white boundaries, save the draft job,\n"
+        text="Choose a JPG, PNG, or BMP to extract boundaries, save the draft job,\n"
         "and open a read-only mock execution monitor.",
     ).pack(anchor="w")
     status = ttk.Label(frame, text="No hardware connection or machine commands.", wraplength=600)
@@ -100,7 +100,11 @@ def prepare_window() -> None:
 
     def choose() -> None:
         image_path = filedialog.askopenfilename(
-            parent=root, title="Choose JPG", filetypes=[("JPEG image", "*.jpg *.jpeg *.JPG *.JPEG")]
+            parent=root,
+            title="Choose image",
+            filetypes=[
+                ("Images (JPG, PNG, BMP)", "*.jpg *.jpeg *.png *.bmp *.JPG *.JPEG *.PNG *.BMP")
+            ],
         )
         if not image_path:
             return
@@ -114,14 +118,14 @@ def prepare_window() -> None:
             return
         job_path = Path(output_path).with_suffix(".json")
         choose_button.configure(state="disabled")
-        status.configure(text="Processing JPG in a background worker…")
+        status.configure(text="Processing image in a background worker…")
 
         def work() -> None:
             try:
                 convert(Path(image_path), job_path, simulation_profile())
                 results.put((True, job_path))
             except Exception as exc:
-                LOG.exception("JPG preparation failed")
+                LOG.exception("Image preparation failed")
                 results.put((False, str(exc)))
 
         threading.Thread(target=work, daemon=True).start()
@@ -138,7 +142,7 @@ def prepare_window() -> None:
             frame.destroy()
             MonitorWindow(root, payload, MockSource())
         else:
-            status.configure(text=f"Cannot prepare JPG: {payload}")
+            status.configure(text=f"Cannot prepare image: {payload}")
             choose_button.configure(state="normal")
             root.after(50, poll)
 
@@ -146,7 +150,7 @@ def prepare_window() -> None:
         closed.set()
         root.destroy()
 
-    choose_button = ttk.Button(frame, text="Choose JPG and prepare simulation", command=choose)
+    choose_button = ttk.Button(frame, text="Choose image and prepare simulation", command=choose)
     choose_button.pack(anchor="w")
     root.protocol("WM_DELETE_WINDOW", close)
     root.after(50, poll)
@@ -154,9 +158,11 @@ def prepare_window() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="JPG preparation and read-only XY plotter monitor")
+    parser = argparse.ArgumentParser(
+        description="Image preparation and read-only XY plotter monitor"
+    )
     sub = parser.add_subparsers(dest="command")
-    conversion = sub.add_parser("convert", help="Prepare JPG without a GUI")
+    conversion = sub.add_parser("convert", help="Prepare JPG, PNG, or BMP without a GUI")
     conversion.add_argument("image", type=Path)
     conversion.add_argument("--output", type=Path, default=Path("output/job.json"))
     conversion.add_argument("--profile", type=Path, help="Default: explicitly simulated example")

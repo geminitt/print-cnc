@@ -1,4 +1,4 @@
-"""JPG adapter. Other image adapters can return the same machine-space strokes."""
+"""Decode supported raster formats into one in-memory grayscale pipeline."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ MAX_FILE_BYTES = 20 * 1024 * 1024
 MAX_IMAGE_PIXELS = 24_000_000
 
 
-def read_jpg(
+def read_image(
     path: Path,
     width: float,
     height: float,
@@ -31,16 +31,23 @@ def read_jpg(
     with path.open("rb") as stream:
         content = stream.read(MAX_FILE_BYTES + 1)
     if not content or len(content) > MAX_FILE_BYTES:
-        raise ValueError("JPG must be nonempty and at most 20 MiB")
+        raise ValueError("Image must be nonempty and at most 20 MiB")
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(content)) as original:
-                if original.format != "JPEG":
-                    raise ValueError("This adapter accepts JPEG content only")
+                image_format = original.format
+                if image_format not in ("JPEG", "PNG", "BMP"):
+                    raise ValueError("Supported image formats are JPEG, PNG, and BMP")
                 if original.width * original.height > MAX_IMAGE_PIXELS:
-                    raise ValueError("JPG exceeds the 24-megapixel input limit")
-                image = ImageOps.exif_transpose(original).convert("L")
+                    raise ValueError("Image exceeds the 24-megapixel input limit")
+                if getattr(original, "n_frames", 1) != 1:
+                    raise ValueError("Multiple frames or pages are not supported")
+                image = ImageOps.exif_transpose(original)
+                if "A" in image.getbands() or "transparency" in image.info:
+                    image = image.convert("RGBA")
+                    image = Image.alpha_composite(Image.new("RGBA", image.size, "white"), image)
+                image = image.convert("L")
                 original_size = image.size
                 image.thumbnail((resolution, resolution), Image.Resampling.LANCZOS)
                 pixels = image.tobytes()
@@ -50,14 +57,14 @@ def read_jpg(
         Image.DecompressionBombError,
         Image.DecompressionBombWarning,
     ) as exc:
-        raise ValueError(f"Cannot decode JPG: {exc}") from exc
+        raise ValueError(f"Cannot decode image: {exc}") from exc
     mask = [
         [pixels[y * image.width + x] < threshold for x in range(image.width)]
         for y in range(image.height)
     ]
     strokes = fit_image(boundaries(mask), image.width, image.height, width, height, margin)
     return strokes, {
-        "format": "JPEG",
+        "format": image_format,
         "sha256": hashlib.sha256(content).hexdigest(),
         "original_size": list(original_size),
         "sampled_size": list(image.size),
